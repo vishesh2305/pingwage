@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx expo start -c)",
+      "Bash(npx expo run:android)",
+      "Bash(taskkill:*)",
+      "Bash(nul)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(adb uninstall:*)",
+      "Bash(npx expo:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(dir:*)",
+      "Bash(gradlew.bat assembleRelease:*)",
+      "Bash(./gradlew.bat assembleRelease)",
+      "Bash(npx @expo/cli:*)",
+      "Bash(npx sharp-cli:*)",
+      "Bash(node generate-app-icons.js:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(move app frontend/)",
+      "Bash(move assets frontend/)",
+      "Bash(move components frontend/)",
+      "Bash(move utils frontend/)",
+      "Bash(move scripts frontend/)",
+      "Bash(move android frontend/)",
+      "Bash(move ios frontend/)",
+      "Bash(test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

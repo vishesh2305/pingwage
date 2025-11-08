@@ -1,0 +1,22 @@
+# Root level gitignore
+# Keep frontend folder but ignore its dependencies
+
+# Frontend dependencies
+frontend/node_modules/
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
