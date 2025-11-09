@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts, Manrope_400Regular, Manrope_500Medium, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import 'react-native-reanimated';
 import '../global.css';
+import {AppDataProvider} from './AppDataContext';
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -24,6 +25,7 @@ export default function RootLayout() {
   };
 
   return (
+    <AppDataProvider>
     <ThemeProvider value={customDarkTheme}>
       <Stack
         screenOptions={{
@@ -42,5 +44,6 @@ export default function RootLayout() {
       </Stack>
       <StatusBar style="light" />
     </ThemeProvider>
+    </AppDataProvider>
   );
 }

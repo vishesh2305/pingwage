@@ -9,12 +9,14 @@ import {
   Image,
   Animated,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppData } from '../AppDataContext';
 import * as Haptics from 'expo-haptics';
+import { protectedFetch } from '@/lib/api'; // Import our helper
 
 const ACTIVITY = [
   { id: '1', title: 'Withdrawal - Bank Transfer', date: 'Oct 25, 2023', amount: '- $50.00', type: 'out' },
@@ -22,16 +24,22 @@ const ACTIVITY = [
   { id: '3', title: 'Payday Deposit', date: 'Oct 15, 2023', amount: '+ $1200.00', type: 'in' },
 ];
 
+// Helper to format currency
+const formatCurrency = (amount: number = 0) => {
+  return `$${amount.toFixed(2)}`;
+};
+
 export default function TabsHomeScreen() {
   const router = useRouter();
   const { isDataLoaded, setIsDataLoaded, employeeName, setEmployeeName } = useAppData();
   const [loading, setLoading] = useState(!isDataLoaded);
   const pulse = useRef(new Animated.Value(0.5)).current;
 
-  // data shown on card
-  const available = '$245.50';
-  const earnedThisPeriod = '$850.00';
-  const progressPercent = 28; // percent width for progress bar
+  // data shown on card - now using state
+  const [available, setAvailable] = useState('$0.00');
+  const [earnedThisPeriod, setEarnedThisPeriod] = useState('$0.00');
+  const [progressPercent, setProgressPercent] = useState(0); // percent width
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
     // If data is already loaded, skip the loading animation
@@ -50,29 +58,62 @@ export default function TabsHomeScreen() {
       ])
     ).start();
 
-    (async () => {
-      // simulate API delay ~2s, and read employeeName if saved
-      await new Promise((r) => setTimeout(r, 1200));
+    const loadAppData = async () => {
       try {
-        const stored = await AsyncStorage.getItem('employeeName');
-        if (mounted && stored) setEmployeeName(stored);
-      } catch (e) {
-        console.warn('Error reading employeeName', e);
-      } finally {
-        // ensure approx 2s total
-        setTimeout(() => {
-          if (mounted) {
-            setLoading(false);
-            setIsDataLoaded(true);
+        // 1. Get employee name (saved during profile setup)
+        const storedName = await AsyncStorage.getItem('employeeName');
+        if (mounted && storedName) {
+          setEmployeeName(storedName);
+        }
+
+        // 2. Fetch user profile (to get photo_url)
+        // This assumes the main login token is saved as 'authToken'
+        const profileRes = await protectedFetch('/worker/me', { method: 'GET' }, 'authToken');
+        if (mounted && profileRes.success && profileRes.data.profile_photo_url) {
+          setProfilePhoto(profileRes.data.profile_photo_url);
+        }
+
+        // 3. Fetch current earnings
+        const earningsRes = await protectedFetch('/earnings/current', { method: 'GET' }, 'authToken');
+        
+        if (mounted && earningsRes.success) {
+          const data = earningsRes.data;
+          
+          setAvailable(formatCurrency(data.available_now));
+          setEarnedThisPeriod(formatCurrency(data.total_earned));
+
+          // Calculate progress percentage of the pay period
+          if (data.pay_period_start && data.pay_period_end) {
+            const start = new Date(data.pay_period_start).getTime();
+            const end = new Date(data.pay_period_end).getTime();
+            const now = Date.now();
+            
+            let percent = ((now - start) / (end - start)) * 100;
+            percent = Math.min(Math.max(percent, 0), 100); // Clamp between 0-100
+            setProgressPercent(percent);
           }
-        }, 900);
+        }
+      } catch (e) {
+        console.warn('Error loading app data', e);
+        if (mounted) {
+          // Could be an auth error, redirect to login
+          // router.replace('/'); 
+          Alert.alert("Error", "Could not load your data. Please try logging in again.");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setIsDataLoaded(true);
+        }
       }
-    })();
+    };
+
+    loadAppData();
 
     return () => {
       mounted = false;
     };
-  }, [isDataLoaded]);
+  }, [isDataLoaded]); // Only run once on mount
 
   const onGetPaidNow = async () => {
     // Satisfying double-tap haptic for important action
@@ -81,6 +122,8 @@ export default function TabsHomeScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }, 50);
     // TODO: implement payout flow
+    // This would navigate to a new screen to confirm amount,
+    // then call POST /api/advances/request
     console.log('Get Paid Now tapped');
   };
 
@@ -167,12 +210,13 @@ export default function TabsHomeScreen() {
       <View className="flex-row items-center justify-between px-4 pt-10 pb-2">
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={styles.avatarWrap}>
-            <Image
-              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBSVUQ26YP7WvfIBgCxqIWhxY9_zSQtkyi6Y1BBwWOSiUaZvfiT8FAs0ZP0mr8qLidUIQy9l-T4eSzVeApeQdeV8OIX5sGGr4-nHqN4KdDFfi0HZhsvxhdnMG6ojo5J50BPaRv0VLvoGeWSOp7K3PK0XHlzQ4-DBXShM6dx9P-XT2Aa7OKyJGKKyMxO3cZ9E6WjdsuGJsg_pSD6QMrQtPIfkoPJoIjOBlNKhXnJSGjDzNnqhiYt-K1GN_g1NNekuZjJcJVrQuQx4Rti' }}
-              style={styles.avatar}
-            />
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={styles.avatar} />
+            ) : (
+              <Ionicons name="person" size={20} color="#A9A9A9" />
+            )}
           </View>
-          <Text className="text-white text-lg font-bold ml-3">Hi, {employeeName}</Text>
+          <Text className="text-white text-lg font-bold ml-3">Hi, {employeeName || 'User'}</Text>
         </View>
 
         <Pressable
@@ -281,6 +325,14 @@ const styles = StyleSheet.create({
   },
   // skeleton styles
   avatarSkeleton: { width: 44, height: 44, borderRadius: 44, backgroundColor: '#2f2f2f' },
+  //
+  // --- THIS IS THE FIX ---
+  // Added the missing skelIcon style
+  //
+  skelIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#2f2f2f' },
+  //
+  // --- END OF FIX ---
+  //
   skelLineShort: { width: 140, height: 12, borderRadius: 6, backgroundColor: '#2f2f2f' },
   skelLineSmaller: { width: 80, height: 10, borderRadius: 6, backgroundColor: '#2f2f2f' },
   skelLineBig: { width: 180, height: 28, borderRadius: 8, backgroundColor: '#2f2f2f' },

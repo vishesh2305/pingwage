@@ -1,8 +1,13 @@
-import { View, Text, TextInput, Pressable, ScrollView, Image } from 'react-native';
+//
+// FILE: frontend/app/(onboard)/profile-setup.tsx
+//
+import { View, Text, TextInput, Pressable, ScrollView, Image, Alert } from 'react-native';
 import { useState } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import BackButton from '@/components/BackButton';
 import { Ionicons } from '@expo/vector-icons';
+import { protectedFetch } from '@/lib/api'; // Import our protected fetch
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
@@ -10,28 +15,92 @@ export default function ProfileSetupScreen() {
 
   // Get employee name from previous step
   const fullName = (params.employeeName as string) || 'John Doe';
+  const [firstName, lastName] = fullName.split(' '); // Split name for backend
 
   const [email, setEmail] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState(''); // Format: YYYY-MM-DD for backend
   const [iban, setIban] = useState('');
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCompleteSetup = () => {
-    // TODO: API call to save profile data
-    console.log('Profile setup completed:', {
-      fullName,
-      email,
-      dateOfBirth,
-      iban,
-      profilePhoto,
-    });
-    // Navigate to create passcode screen
-    router.push('/create-passcode');
+  const handleCompleteSetup = async () => {
+    setIsLoading(true);
+
+    // TODO: Add validation for email, DOB, IBAN
+
+    try {
+      // 1. Update the worker's profile (name, email, dob)
+      // This uses the 'tempToken' from phone verification
+      const profileRes = await protectedFetch(
+        '/worker/me',
+        {
+          method: 'PUT',
+          body: {
+            first_name: firstName,
+            last_name: lastName || '', // Handle cases with no last name
+            email: email,
+            date_of_birth: dateOfBirth, // Ensure this is YYYY-MM-DD
+          },
+        },
+        'tempToken' // Specify using the 'tempToken'
+      );
+
+      if (!profileRes.success) {
+        throw new Error(profileRes.message || 'Failed to update profile');
+      }
+
+      // 2. Add the bank account (IBAN)
+      const bankRes = await protectedFetch(
+        '/worker/bank-account',
+        {
+          method: 'POST',
+          body: {
+            iban: iban,
+            // bank_name is optional in controller, but IBAN is required
+          },
+        },
+        'tempToken' // Specify using the 'tempToken'
+      );
+
+      if (!bankRes.success) {
+        throw new Error(bankRes.message || 'Failed to add bank account');
+      }
+
+      // 3. Save name to AsyncStorage for the dashboard to use
+      await AsyncStorage.setItem('employeeName', firstName);
+
+      console.log('Profile setup completed:', {
+        fullName, email, dateOfBirth, iban
+      });
+      
+      // Navigate to create passcode screen
+      router.push('/create-passcode');
+
+    } catch (error) {
+      console.error('handleCompleteSetup error:', error);
+      Alert.alert('Error', (error as Error).message || 'An error occurred.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAddPhoto = () => {
     // TODO: Implement image picker
+    // After picking an image, you would use protectedFetch to
+    // send FormData to '/worker/profile-photo'
     console.log('Add profile photo pressed');
+  };
+
+  // A simple formatter for DOB as user types
+  const handleDateChange = (text: string) => {
+    let newText = text.replace(/[^0-9]/g, ''); // Remove non-numeric
+    if (newText.length > 4) {
+      newText = newText.substring(0, 4) + '-' + newText.substring(4);
+    }
+    if (newText.length > 7) {
+      newText = newText.substring(0, 7) + '-' + newText.substring(7);
+    }
+    setDateOfBirth(newText.substring(0, 10)); // YYYY-MM-DD
   };
 
   return (
@@ -123,10 +192,12 @@ export default function ProfileSetupScreen() {
               </Text>
               <TextInput
                 className="w-full rounded-lg border border-white/20 bg-[#2a2a2a] text-white h-14 px-4 text-base"
-                placeholder="DD/MM/YYYY"
+                placeholder="YYYY-MM-DD"
                 placeholderTextColor="#A9A9A9"
                 value={dateOfBirth}
-                onChangeText={setDateOfBirth}
+                onChangeText={handleDateChange}
+                keyboardType="number-pad"
+                maxLength={10}
               />
             </View>
 
@@ -160,10 +231,11 @@ export default function ProfileSetupScreen() {
       <View className="px-4 py-6">
         <Pressable
           onPress={handleCompleteSetup}
-          className="w-full rounded-lg h-14 bg-primary items-center justify-center active:opacity-80"
+          disabled={isLoading}
+          className={`w-full rounded-lg h-14 bg-primary items-center justify-center active:opacity-80 ${isLoading ? 'opacity-50' : ''}`}
         >
           <Text className="text-background-dark text-base font-bold">
-            Complete Setup
+            {isLoading ? 'Saving...' : 'Complete Setup'}
           </Text>
         </Pressable>
       </View>

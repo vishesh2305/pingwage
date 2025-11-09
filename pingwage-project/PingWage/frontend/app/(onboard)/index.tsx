@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
+
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
