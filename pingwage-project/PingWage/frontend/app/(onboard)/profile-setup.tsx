@@ -26,13 +26,47 @@ export default function ProfileSetupScreen() {
   const handleCompleteSetup = async () => {
     setIsLoading(true);
 
-    // TODO: Add validation for email, DOB, IBAN
+    // Validate inputs
+    if (!email || !dateOfBirth || !iban) {
+      Alert.alert('Error', 'Please fill in all fields');
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(dateOfBirth)) {
+      Alert.alert('Error', 'Date of birth must be in YYYY-MM-DD format');
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate date is valid and not in the future
+    const dobDate = new Date(dateOfBirth);
+    if (isNaN(dobDate.getTime())) {
+      Alert.alert('Error', 'Invalid date of birth');
+      setIsLoading(false);
+      return;
+    }
+
+    if (dobDate > new Date()) {
+      Alert.alert('Error', 'Date of birth cannot be in the future');
+      setIsLoading(false);
+      return;
+    }
 
     try {
+      console.log('Submitting profile with data:', {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        date_of_birth: dateOfBirth
+      });
+
       // 1. Update the worker's profile (name, email, dob)
       // This uses the 'tempToken' from phone verification
       const profileRes = await protectedFetch(
-        '/worker/me',
+        '/workers/me',
         {
           method: 'PUT',
           body: {
@@ -51,7 +85,7 @@ export default function ProfileSetupScreen() {
 
       // 2. Add the bank account (IBAN)
       const bankRes = await protectedFetch(
-        '/worker/bank-account',
+        '/workers/bank-account',
         {
           method: 'POST',
           body: {
@@ -87,7 +121,7 @@ export default function ProfileSetupScreen() {
   const handleAddPhoto = () => {
     // TODO: Implement image picker
     // After picking an image, you would use protectedFetch to
-    // send FormData to '/worker/profile-photo'
+    // send FormData to '/workers/profile-photo'
     console.log('Add profile photo pressed');
   };
 
@@ -192,13 +226,16 @@ export default function ProfileSetupScreen() {
               </Text>
               <TextInput
                 className="w-full rounded-lg border border-white/20 bg-[#2a2a2a] text-white h-14 px-4 text-base"
-                placeholder="YYYY-MM-DD"
+                placeholder="YYYY-MM-DD (e.g., 1990-01-15)"
                 placeholderTextColor="#A9A9A9"
                 value={dateOfBirth}
                 onChangeText={handleDateChange}
                 keyboardType="number-pad"
                 maxLength={10}
               />
+              <Text className="text-[#A9A9A9] text-xs mt-1">
+                Format: YYYY-MM-DD
+              </Text>
             </View>
 
             {/* IBAN */}

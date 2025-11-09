@@ -32,15 +32,34 @@ export const updateWorkerProfile = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
   const { first_name, last_name, email, date_of_birth } = req.body;
 
-  const updatedProfile = await prisma.workerProfile.update({
+  console.log('Received date_of_birth:', date_of_birth);
+
+  // Parse the date and validate it
+  let parsedDate = null;
+  if (date_of_birth) {
+    parsedDate = new Date(date_of_birth);
+    console.log('Parsed date:', parsedDate);
+    if (isNaN(parsedDate.getTime())) {
+      throw new ApiError(400, `Invalid date format: ${date_of_birth}. Expected YYYY-MM-DD`);
+    }
+  }
+
+  // Use upsert to create or update the profile
+  const updatedProfile = await prisma.workerProfile.upsert({
     where: { user_id: userId },
-    data: {
+    update: {
       first_name,
       last_name,
-      date_of_birth: date_of_birth ? new Date(date_of_birth) : null
+      date_of_birth: parsedDate
+    },
+    create: {
+      user_id: userId,
+      first_name,
+      last_name,
+      date_of_birth: parsedDate
     }
   });
-  
+
   // Also update email on the main user model
   if (email) {
     await prisma.user.update({

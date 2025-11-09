@@ -18,6 +18,7 @@ export const protect = asyncHandler(async (req, res, next) => {
     req.user = decoded; // Attaches { userId, role } to the request
     next();
   } catch (error) {
-    throw new ApiError(401, "Not authorized, token failed");
+    console.error('JWT verification error:', error.message);
+    throw new ApiError(401, `Not authorized, token failed: ${error.message}`);
   }
 });

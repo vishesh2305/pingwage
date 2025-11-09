@@ -1,4 +1,4 @@
-import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Alert, Modal, ScrollView } from 'react-native';
 import { useState, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import BackButton from '@/components/BackButton';
@@ -6,11 +6,55 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '@/lib/api'; // Import our new helper
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Country codes with flags and dial codes
+const COUNTRY_CODES = [
+  { code: '+1', country: 'US', flag: '🇺🇸', name: 'United States' },
+  { code: '+1', country: 'CA', flag: '🇨🇦', name: 'Canada' },
+  { code: '+44', country: 'GB', flag: '🇬🇧', name: 'United Kingdom' },
+  { code: '+91', country: 'IN', flag: '🇮🇳', name: 'India' },
+  { code: '+86', country: 'CN', flag: '🇨🇳', name: 'China' },
+  { code: '+81', country: 'JP', flag: '🇯🇵', name: 'Japan' },
+  { code: '+49', country: 'DE', flag: '🇩🇪', name: 'Germany' },
+  { code: '+33', country: 'FR', flag: '🇫🇷', name: 'France' },
+  { code: '+39', country: 'IT', flag: '🇮🇹', name: 'Italy' },
+  { code: '+34', country: 'ES', flag: '🇪🇸', name: 'Spain' },
+  { code: '+61', country: 'AU', flag: '🇦🇺', name: 'Australia' },
+  { code: '+7', country: 'RU', flag: '🇷🇺', name: 'Russia' },
+  { code: '+55', country: 'BR', flag: '🇧🇷', name: 'Brazil' },
+  { code: '+52', country: 'MX', flag: '🇲🇽', name: 'Mexico' },
+  { code: '+27', country: 'ZA', flag: '🇿🇦', name: 'South Africa' },
+  { code: '+82', country: 'KR', flag: '🇰🇷', name: 'South Korea' },
+  { code: '+65', country: 'SG', flag: '🇸🇬', name: 'Singapore' },
+  { code: '+971', country: 'AE', flag: '🇦🇪', name: 'UAE' },
+  { code: '+41', country: 'CH', flag: '🇨🇭', name: 'Switzerland' },
+  { code: '+31', country: 'NL', flag: '🇳🇱', name: 'Netherlands' },
+  { code: '+46', country: 'SE', flag: '🇸🇪', name: 'Sweden' },
+  { code: '+47', country: 'NO', flag: '🇳🇴', name: 'Norway' },
+  { code: '+45', country: 'DK', flag: '🇩🇰', name: 'Denmark' },
+  { code: '+358', country: 'FI', flag: '🇫🇮', name: 'Finland' },
+  { code: '+351', country: 'PT', flag: '🇵🇹', name: 'Portugal' },
+  { code: '+48', country: 'PL', flag: '🇵🇱', name: 'Poland' },
+  { code: '+90', country: 'TR', flag: '🇹🇷', name: 'Turkey' },
+  { code: '+20', country: 'EG', flag: '🇪🇬', name: 'Egypt' },
+  { code: '+234', country: 'NG', flag: '🇳🇬', name: 'Nigeria' },
+  { code: '+254', country: 'KE', flag: '🇰🇪', name: 'Kenya' },
+  { code: '+966', country: 'SA', flag: '🇸🇦', name: 'Saudi Arabia' },
+  { code: '+92', country: 'PK', flag: '🇵🇰', name: 'Pakistan' },
+  { code: '+880', country: 'BD', flag: '🇧🇩', name: 'Bangladesh' },
+  { code: '+84', country: 'VN', flag: '🇻🇳', name: 'Vietnam' },
+  { code: '+66', country: 'TH', flag: '🇹🇭', name: 'Thailand' },
+  { code: '+60', country: 'MY', flag: '🇲🇾', name: 'Malaysia' },
+  { code: '+63', country: 'PH', flag: '🇵🇭', name: 'Philippines' },
+  { code: '+62', country: 'ID', flag: '🇮🇩', name: 'Indonesia' },
+  { code: '+64', country: 'NZ', flag: '🇳🇿', name: 'New Zealand' },
+];
+
 export default function VerifyPhoneScreen() {
   const router = useRouter();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [countryCode, setCountryCode] = useState('+41'); // Assuming +41 for simplicity
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[18]); // Switzerland as default
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const otpInputs = useRef<Array<TextInput | null>>([]);
@@ -18,7 +62,7 @@ export default function VerifyPhoneScreen() {
   const getFullPhone = () => {
     // Basic cleanup, remove leading 0 if present
     const cleanPhone = phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber;
-    return countryCode + cleanPhone.replace(/\s/g, ''); // Combine and remove spaces
+    return selectedCountry.code + cleanPhone.replace(/\s/g, ''); // Combine and remove spaces
   }
 
   const handleSendOtp = async () => {
@@ -136,10 +180,13 @@ export default function VerifyPhoneScreen() {
                 </Text>
                 <View className="flex-row items-stretch gap-0">
                   {/* Country Selector */}
-                  <Pressable className="flex-row items-center justify-center gap-2 rounded-l-lg border border-r-0 border-white/20 bg-white/5 px-3">
-                    <Text className="text-xl">🇨🇭</Text>
-                    {/* <Ionicons name="chevron-down" size={18} color="#A9A9A9" /> */}
-                    <Text className="text-white/60 text-base">{countryCode}</Text>
+                  <Pressable
+                    onPress={() => setShowCountryPicker(true)}
+                    className="flex-row items-center justify-center gap-2 rounded-l-lg border border-r-0 border-white/20 bg-white/5 px-3 active:opacity-70"
+                  >
+                    <Text className="text-xl">{selectedCountry.flag}</Text>
+                    <Ionicons name="chevron-down" size={18} color="#A9A9A9" />
+                    <Text className="text-white/60 text-base">{selectedCountry.code}</Text>
                   </Pressable>
 
                   {/* Phone Input */}
@@ -260,6 +307,50 @@ export default function VerifyPhoneScreen() {
           </View>
         )}
       </View>
+
+      {/* Country Picker Modal */}
+      <Modal
+        visible={showCountryPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCountryPicker(false)}
+      >
+        <View className="flex-1 bg-black/50" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <Pressable
+            className="flex-1"
+            onPress={() => setShowCountryPicker(false)}
+          />
+          <View className="bg-background-dark rounded-t-3xl" style={{ height: '70%' }}>
+            {/* Modal Header */}
+            <View className="flex-row items-center justify-between p-4 border-b border-white/10">
+              <Text className="text-white text-lg font-bold">Select Country</Text>
+              <Pressable onPress={() => setShowCountryPicker(false)}>
+                <Ionicons name="close" size={24} color="#A9A9A9" />
+              </Pressable>
+            </View>
+
+            {/* Country List */}
+            <ScrollView style={{ flex: 1 }}>
+              {COUNTRY_CODES.map((country, index) => (
+                <Pressable
+                  key={`${country.country}-${index}`}
+                  onPress={() => {
+                    setSelectedCountry(country);
+                    setShowCountryPicker(false);
+                  }}
+                  className="flex-row items-center justify-between p-4 border-b border-white/5 active:bg-white/5"
+                >
+                  <View className="flex-row items-center gap-3">
+                    <Text className="text-2xl">{country.flag}</Text>
+                    <Text className="text-white text-base">{country.name}</Text>
+                  </View>
+                  <Text className="text-white/60 text-base">{country.code}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

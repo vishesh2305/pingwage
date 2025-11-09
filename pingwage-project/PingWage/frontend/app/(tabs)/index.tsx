@@ -68,7 +68,7 @@ export default function TabsHomeScreen() {
 
         // 2. Fetch user profile (to get photo_url)
         // This assumes the main login token is saved as 'authToken'
-        const profileRes = await protectedFetch('/worker/me', { method: 'GET' }, 'authToken');
+        const profileRes = await protectedFetch('/workers/me', { method: 'GET' }, 'authToken');
         if (mounted && profileRes.success && profileRes.data.profile_photo_url) {
           setProfilePhoto(profileRes.data.profile_photo_url);
         }

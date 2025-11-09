@@ -10,9 +10,11 @@ import {
   Image,
   Switch,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PROFILE_DATA = {
   name: "Nathan Timmis",
@@ -35,8 +37,40 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    console.log("Logout pressed");
-    // TODO: Implement logout logic
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Log Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Clear all auth tokens and user data
+              await AsyncStorage.multiRemove([
+                'authToken',
+                'tempToken',
+                'employeeName',
+                'userPhone'
+              ]);
+
+              console.log("User logged out successfully");
+
+              // Navigate to the welcome/login screen
+              // Replace with your actual onboarding route
+              router.replace('/(onboard)');
+            } catch (error) {
+              console.error("Error during logout:", error);
+              Alert.alert("Error", "Failed to log out. Please try again.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
