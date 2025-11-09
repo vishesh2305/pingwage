@@ -7,6 +7,47 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL = 'http://10.50.3.253:3000/api/v1';
 
 /**
+ * Helper function to handle common fetch response logic.
+ * This prevents the 'JSON Parse error: <' by checking res.ok
+ * and content-type before trying to parse JSON.
+ */
+const handleResponse = async (res) => {
+  // Check if the response is JSON
+  const contentType = res.headers.get('content-type');
+  const isJson = contentType && contentType.includes('application/json');
+
+  if (!res.ok) {
+    // If the response is not OK (e.g., 404, 500, 401)
+    // Try to get the error message from the body (as text)
+    const errorText = await res.text();
+
+    // If it was JSON, we might be able to parse it for a message
+    if (isJson) {
+      try {
+        const jsonError = JSON.parse(errorText);
+        throw new Error(jsonError.message || jsonError.error || 'Server returned an error');
+      } catch (e) {
+        // Fallback if parsing the error JSON fails
+        throw new Error(errorText || 'Server error: Invalid JSON response');
+      }
+    }
+
+    // If it wasn't JSON, throw the HTML/text content
+    // This will now show you the real error instead of "JSON Parse error"
+    throw new Error(errorText || `Server error: ${res.status}`);
+  }
+
+  // If we're here, res.ok was true.
+  // Handle cases where the body might be empty on a 200/204
+  if (!isJson || res.status === 204) {
+    return { success: true, data: null }; // Or whatever your app expects
+  }
+
+  // Only parse as JSON if we are sure it's JSON and res was ok
+  return res.json();
+};
+
+/**
  * A simple fetch wrapper for unauthenticated routes
  */
 export const api = {
@@ -18,19 +59,11 @@ export const api = {
       },
       body: JSON.stringify(body),
     });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`HTTP ${res.status}: ${text}`);
-    }
-    return res.json();
+    return handleResponse(res);
   },
   get: async (endpoint) => {
     const res = await fetch(`${API_URL}${endpoint}`);
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`HTTP ${res.status}: ${text}`);
-    }
-    return res.json();
+    return handleResponse(res);
   },
 };
 
@@ -57,12 +90,7 @@ export const protectedFetch = async (endpoint, options = {}, tokenKey = 'authTok
     body: options.body ? JSON.stringify(options.body) : null,
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HTTP ${res.status}: ${text}`);
-  }
-
-  return res.json();
+  return handleResponse(res);
 };
 
 export default API_URL;

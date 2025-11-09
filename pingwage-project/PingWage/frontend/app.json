@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.pingWageApp"
+      "package": "com.pingWageApp",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",

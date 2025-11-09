@@ -1,26 +1,27 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Alert } from 'react-native'; // Import Alert
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { useAuth } from '@/app/AppDataContext'; // <-- 1. IMPORT useAuth
 
 export default function CreatePasscodeScreen() {
   const router = useRouter();
+  const { signIn } = useAuth(); // <-- 2. GET THE signIn FUNCTION
   const [passcode, setPasscode] = useState('');
   const [confirmPasscode, setConfirmPasscode] = useState('');
   const [step, setStep] = useState<'create' | 'confirm'>('create');
 
   const handleNumberPress = (num: string) => {
-    // Light haptic feedback for number press - use selectionAsync as fallback
+    // ... (no changes in this function)
     Haptics.selectionAsync();
 
     if (step === 'create' && passcode.length < 4) {
       const newPass = passcode + num;
       setPasscode(newPass);
       if (newPass.length === 4) {
-        // Medium haptic when completing 4 digits
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setTimeout(() => setStep('confirm'), 300);
       }
@@ -28,7 +29,6 @@ export default function CreatePasscodeScreen() {
       const newConfirm = confirmPasscode + num;
       setConfirmPasscode(newConfirm);
       if (newConfirm.length === 4) {
-        // Medium haptic when completing 4 digits
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
     }
@@ -40,30 +40,58 @@ export default function CreatePasscodeScreen() {
       const timer = setTimeout(async () => {
         if (passcode === confirmPasscode) {
           // Passcode matches, save and navigate
-          // Success haptic - notification style
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           try {
+            // --- 3. THIS IS THE NEW LOGIC ---
+
+            // Retrieve the session token and user data from onboarding
+            const tempToken = await AsyncStorage.getItem('tempToken');
+            const userId = await AsyncStorage.getItem('userId'); // (Assuming this was saved in verify-phone step)
+            const employeeName = await AsyncStorage.getItem('employeeName');
+
+            if (!tempToken) {
+              throw new Error('Onboarding session expired. Please start over.');
+            }
+
+            // Create the user object the app context needs
+            const userObject = {
+              id: userId,
+              name: employeeName,
+              // Add any other user details you saved during onboarding
+            };
+
+            // Save the new passcode securely
             await SecureStore.setItemAsync('userPasscode', passcode);
+            
+            // Mark onboarding as complete
             await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
-            router.replace('/(tabs)');
+
+            // --- 4. SIGN THE USER IN ---
+            // This saves the token as 'authToken' in SecureStore
+            // and automatically navigates to the '/(tabs)' dashboard.
+            await signIn(tempToken, userObject);
+
+            // We no longer need the old router.push
+            // router.replace('/(tabs)'); // <-- This is now handled by signIn()
+
           } catch (err) {
-            console.error('Error saving data', err);
-            // Error haptic
+            console.error('Error completing setup:', err);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert('Setup Failed', (err as Error).message || 'Could not complete setup.');
             setConfirmPasscode('');
           }
         } else {
-          // Passcode doesn't match - error haptic
+          // Passcode doesn't match
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           setConfirmPasscode('');
         }
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [confirmPasscode, passcode, router]);
+  }, [confirmPasscode, passcode, signIn]); // <-- Add signIn to dependency array
 
   const handleBackspace = () => {
-    // Light haptic for backspace
+    // ... (no changes in this function)
     Haptics.selectionAsync();
     if (step === 'create') setPasscode(passcode.slice(0, -1));
     else setConfirmPasscode(confirmPasscode.slice(0, -1));
@@ -72,6 +100,7 @@ export default function CreatePasscodeScreen() {
   const currentPasscode = step === 'create' ? passcode : confirmPasscode;
 
   return (
+    // ... (no changes to the JSX UI)
     <View className="flex-1 bg-background-dark">
       <View className="flex-1 p-4 justify-between">
         <View className="items-center pt-8">
