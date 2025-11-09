@@ -3,7 +3,8 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import BackButton from '@/components/BackButton';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '@/lib/api'; // Import our new helper
+// Import both the 'api' object and the default 'API_URL' for logging
+import API_URL, { api } from '@/lib/api'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function VerifyPhoneScreen() {
@@ -25,21 +26,42 @@ export default function VerifyPhoneScreen() {
     setIsLoading(true);
     const fullPhoneNumber = getFullPhone();
     
+    // --- START DEBUG LOGGING ---
+    console.log('------------------------------');
+    console.log('Attempting to send OTP...');
+    console.log('Phone number:', fullPhoneNumber);
+    console.log('Calling URL:', `${API_URL}/auth/register`);
+    // --- END DEBUG LOGGING ---
+    
     try {
       // API call to send OTP (backend route is /register)
       const res = await api.post('/auth/register', {
         phone: fullPhoneNumber,
       });
 
+      // --- START DEBUG LOGGING ---
+      console.log('Server response received:', JSON.stringify(res, null, 2));
+      // --- END DEBUG LOGGING ---
+
       if (res.success) {
-        console.log('Sending OTP to:', fullPhoneNumber);
+        console.log('Success! Setting step to OTP.');
         setStep('otp');
       } else {
+        // --- START DEBUG LOGGING ---
+        console.warn('Server responded with an error:', res.message);
+        // --- END DEBUG LOGGING ---
         Alert.alert('Error', res.message || 'Could not send verification code.');
       }
     } catch (error) {
-      console.error('handleSendOtp error:', error);
-      Alert.alert('Error', 'An error occurred. Please try again.');
+      // --- START DEBUG LOGGING ---
+      console.error('CRITICAL: handleSendOtp network request failed.');
+      // Log the full error object to see what it contains
+      console.error('Error Type:', (error as Error).name);
+      console.error('Error Message:', (error as Error).message);
+      console.error('Full Error Object:', JSON.stringify(error, null, 2));
+      console.log('------------------------------');
+      // --- END DEBUG LOGGING ---
+      Alert.alert('Network Error', 'Could not connect to the server. Please check your network, IP address, and firewall settings.');
     } finally {
       setIsLoading(false);
     }
@@ -50,12 +72,24 @@ export default function VerifyPhoneScreen() {
     const fullPhoneNumber = getFullPhone();
     const code = otp.join('');
 
+    // --- START DEBUG LOGGING ---
+    console.log('------------------------------');
+    console.log('Attempting to verify OTP...');
+    console.log('Phone number:', fullPhoneNumber);
+    console.log('Code:', code);
+    console.log('Calling URL:', `${API_URL}/auth/verify-phone`);
+    // --- END DEBUG LOGGING ---
+
     try {
       // API call to verify OTP
       const res = await api.post('/auth/verify-phone', {
         phone: fullPhoneNumber,
         code: code,
       });
+
+      // --- START DEBUG LOGGING ---
+      console.log('Server response received:', JSON.stringify(res, null, 2));
+      // --- END DEBUG LOGGING ---
 
       if (res.success && res.data.token) {
         // Save the temporary token needed for profile setup & setting PIN
@@ -68,11 +102,20 @@ export default function VerifyPhoneScreen() {
           params: { phoneNumber: fullPhoneNumber },
         });
       } else {
+        // --- START DEBUG LOGGING ---
+        console.warn('Server responded with an error:', res.message);
+        // --- END DEBUG LOGGING ---
         Alert.alert('Error', res.message || 'Invalid or expired verification code.');
       }
     } catch (error) {
-      console.error('handleVerifyOtp error:', error);
-      Alert.alert('Error', 'An error occurred. Please try again.');
+      // --- START DEBUG LOGGING ---
+      console.error('CRITICAL: handleVerifyOtp network request failed.');
+      console.error('Error Type:', (error as Error).name);
+      console.error('Error Message:', (error as Error).message);
+      console.error('Full Error Object:', JSON.stringify(error, null, 2));
+      console.log('------------------------------');
+      // --- END DEBUG LOGGING ---
+      Alert.alert('Network Error', 'Could not connect to the server. Please check your network and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -99,9 +142,11 @@ export default function VerifyPhoneScreen() {
   };
 
   const handleResendCode = () => {
+    // --- START DEBUG LOGGING ---
+    console.log('Resending OTP code...');
+    // --- END DEBUG LOGGING ---
     // Re-call handleSendOtp to resend
     handleSendOtp();
-    console.log('Resending OTP');
     setOtp(['', '', '', '', '', '']);
   };
 
@@ -194,16 +239,9 @@ export default function VerifyPhoneScreen() {
                 {otp.map((digit, index) => (
                   <TextInput
                     key={index}
-                    //
-                    // --- THIS IS THE FIX ---
-                    // Changed (ref) => (output) to (ref) => { function body }
-                    //
                     ref={(ref) => {
                       otpInputs.current[index] = ref;
                     }}
-                    //
-                    // --- END OF FIX ---
-                    //
                     className="h-16 flex-1 text-center text-xl font-bold rounded-lg border border-white/20 bg-white/5 text-white"
                     maxLength={1}
                     keyboardType="number-pad"

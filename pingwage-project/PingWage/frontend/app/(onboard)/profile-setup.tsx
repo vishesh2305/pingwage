@@ -32,7 +32,7 @@ export default function ProfileSetupScreen() {
       // 1. Update the worker's profile (name, email, dob)
       // This uses the 'tempToken' from phone verification
       const profileRes = await protectedFetch(
-        '/worker/me',
+        '/workers/me',
         {
           method: 'PUT',
           body: {
@@ -51,7 +51,7 @@ export default function ProfileSetupScreen() {
 
       // 2. Add the bank account (IBAN)
       const bankRes = await protectedFetch(
-        '/worker/bank-account',
+        '/workers/bank-account',
         {
           method: 'POST',
           body: {
