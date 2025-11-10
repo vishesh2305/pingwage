@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PingWage - Employer Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .info-value {
+            color: #333;
+            font-family: monospace;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .employees-list {
+            margin-top: 20px;
+        }
+
+        .employee-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .employee-info {
+            flex: 1;
+        }
+
+        .employee-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .employee-phone {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .employee-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-linked {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏢 Employer Portal</h1>
+            <p>Manage your company information and employees</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginSection" class="card">
+            <h2>Login</h2>
+            <div id="loginAlert"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="loginEmail" placeholder="employer@company.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+        </div>
+
+        <!-- Company Info (Hidden until logged in) -->
+        <div id="dashboardSection" class="hidden">
+            <!-- Company Information Card -->
+            <div class="card">
+                <h2>Company Information</h2>
+                <div class="info-row">
+                    <span class="info-label">Company Name:</span>
+                    <span class="info-value" id="companyName">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Company ID:</span>
+                    <span class="info-value" id="companyId">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Employees:</span>
+                    <span class="info-value" id="totalEmployees">0</span>
+                </div>
+            </div>
+
+            <!-- Add Employee Card -->
+            <div class="card">
+                <h2>Add New Employee</h2>
+                <div id="addEmployeeAlert"></div>
+                <form id="addEmployeeForm">
+                    <div class="form-group">
+                        <label>Employee Phone Number</label>
+                        <input type="tel" id="employeePhone" placeholder="+41791234567" required>
+                        <small style="color: #666; font-size: 12px;">Include country code (e.g., +41 for Switzerland)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Employee Name (Optional)</label>
+                        <input type="text" id="employeeName" placeholder="John Doe">
+                    </div>
+                    <button type="submit" class="btn">Add Employee</button>
+                </form>
+            </div>
+
+            <!-- Employees List -->
+            <div class="card">
+                <h2>Your Employees</h2>
+                <div id="employeesList" class="employees-list">
+                    <p style="color: #666;">Loading employees...</p>
+                </div>
+            </div>
+
+            <!-- Logout Button -->
+            <button onclick="logout()" class="btn" style="width: 100%;">Logout</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://10.30.0.117:3000/api/v1';
+        let authToken = localStorage.getItem('employerToken');
+
+        // Check if already logged in
+        if (authToken) {
+            loadDashboard();
+        }
+
+        // Login Form Handler
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Login failed');
+                }
+
+                // Save token and load dashboard
+                authToken = data.data.token;
+                localStorage.setItem('employerToken', authToken);
+
+                showAlert('loginAlert', 'Login successful!', 'success');
+                setTimeout(() => loadDashboard(), 1000);
+
+            } catch (error) {
+                showAlert('loginAlert', error.message, 'error');
+            }
+        });
+
+        // Add Employee Form Handler
+        document.getElementById('addEmployeeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phone = document.getElementById('employeePhone').value;
+            const name = document.getElementById('employeeName').value;
+
+            try {
+                const response = await fetch(`${API_URL}/employers/employees`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ phone, name: name || undefined })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to add employee');
+                }
+
+                showAlert('addEmployeeAlert', 'Employee added successfully!', 'success');
+                document.getElementById('addEmployeeForm').reset();
+
+                // Reload employees list
+                setTimeout(() => loadEmployees(), 1000);
+
+            } catch (error) {
+                showAlert('addEmployeeAlert', error.message, 'error');
+            }
+        });
+
+        async function loadDashboard() {
+            try {
+                // Fetch employer profile
+                const response = await fetch(`${API_URL}/employers/me`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error('Failed to load profile');
+                }
+
+                // Update UI
+                document.getElementById('companyName').textContent = data.data.company_name;
+                document.getElementById('companyId').textContent = data.data.id;
+
+                // Hide login, show dashboard
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('dashboardSection').classList.remove('hidden');
+
+                // Load employees
+                loadEmployees();
+
+            } catch (error) {
+                console.error('Dashboard load error:', error);
+                logout();
+            }
+        }
+
+        async function loadEmployees() {
+            try {
+                const response = await fetch(`${API_URL}/employers/employees`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error('Failed to load employees');
+                }
+
+                const employees = data.data || [];
+                document.getElementById('totalEmployees').textContent = employees.length;
+
+                // Render employees list
+                const employeesList = document.getElementById('employeesList');
+
+                if (employees.length === 0) {
+                    employeesList.innerHTML = '<p style="color: #666;">No employees added yet.</p>';
+                    return;
+                }
+
+                employeesList.innerHTML = employees.map(emp => `
+                    <div class="employee-item">
+                        <div class="employee-info">
+                            <div class="employee-name">${emp.first_name || 'Unnamed'} ${emp.last_name || ''}</div>
+                            <div class="employee-phone">${emp.user?.phone || 'No phone'}</div>
+                        </div>
+                        <span class="employee-status ${emp.employer_id ? 'status-linked' : 'status-pending'}">
+                            ${emp.employer_id ? 'Linked' : 'Pending'}
+                        </span>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Load employees error:', error);
+                document.getElementById('employeesList').innerHTML =
+                    '<p style="color: #dc3545;">Failed to load employees</p>';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('employerToken');
+            authToken = null;
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('loginForm').reset();
+        }
+
+        function showAlert(elementId, message, type) {
+            const alertDiv = document.getElementById(elementId);
+            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => alertDiv.innerHTML = '', 5000);
+        }
+    </script>
+</body>
+</html>
