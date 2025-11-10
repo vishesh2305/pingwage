@@ -29,12 +29,40 @@ export default function ProfileSetupScreen() {
       Alert.alert('Validation Error', 'Please enter your email address.');
       return;
     }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
     if (!dateOfBirth.trim() || dateOfBirth.length !== 10) {
       Alert.alert('Validation Error', 'Please enter a valid date of birth (YYYY-MM-DD).');
       return;
     }
+
     if (!iban.trim()) {
       Alert.alert('Validation Error', 'Please enter your IBAN.');
+      return;
+    }
+
+    // Validate IBAN format
+    const cleanIban = iban.replace(/\s/g, '').toUpperCase();
+    if (cleanIban.length < 15 || cleanIban.length > 34) {
+      Alert.alert(
+        'Invalid IBAN',
+        `IBAN must be between 15 and 34 characters.\n\nYou entered: ${cleanIban.length} characters\n\nExample: CH9300762011623852957`
+      );
+      return;
+    }
+
+    // Check if IBAN starts with 2 letters (country code)
+    if (!/^[A-Z]{2}/.test(cleanIban)) {
+      Alert.alert(
+        'Invalid IBAN',
+        'IBAN must start with a 2-letter country code (e.g., CH93...)'
+      );
       return;
     }
 
@@ -247,12 +275,15 @@ export default function ProfileSetupScreen() {
               </Text>
               <TextInput
                 className="w-full rounded-lg border border-white/20 bg-[#2a2a2a] text-white h-14 px-4 text-base"
-                placeholder="Enter your IBAN"
+                placeholder="CH93 0076 2011 6238 5295 7"
                 placeholderTextColor="#A9A9A9"
                 autoCapitalize="characters"
                 value={iban}
                 onChangeText={setIban}
               />
+              <Text className="text-[#A9A9A9] text-xs mt-1">
+                15-34 characters (e.g., CH9300762011623852957)
+              </Text>
             </View>
 
             {/* Security Message */}
