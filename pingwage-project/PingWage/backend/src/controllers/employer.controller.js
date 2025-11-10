@@ -94,13 +94,21 @@ export const addEmployee = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Employer profile not found");
   }
 
-  // Find user by phone
-  const user = await prisma.user.findUnique({
+  // Find or create user by phone (allow adding before employee signs up)
+  let user = await prisma.user.findUnique({
     where: { phone }
   });
 
   if (!user) {
-    throw new ApiError(404, `No user found with phone number ${phone}. They need to sign up first.`);
+    // Create a placeholder user account for this phone
+    // Employee will complete signup when they verify their phone
+    user = await prisma.user.create({
+      data: {
+        phone,
+        role: "worker",
+        status: "active"
+      }
+    });
   }
 
   // Check if worker profile exists
@@ -109,7 +117,7 @@ export const addEmployee = asyncHandler(async (req, res) => {
   });
 
   if (!workerProfile) {
-    // Create worker profile if it doesn't exist
+    // Create worker profile linked to this employer
     workerProfile = await prisma.workerProfile.create({
       data: {
         user: { connect: { id: user.id } },

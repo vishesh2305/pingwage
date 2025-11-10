@@ -78,20 +78,38 @@ export const updateWorkerProfile = asyncHandler(async (req, res) => {
     date_of_birth: date_of_birth ? new Date(date_of_birth) : null
   };
 
+  // Check if profile already exists to preserve employer_id
+  const existingProfile = await prisma.workerProfile.findUnique({
+    where: { user_id: userId }
+  });
+
   // Use upsert to handle both create and update
+  // IMPORTANT: Preserve employer_id if it exists
   const updatedProfile = await prisma.workerProfile.upsert({
     where: { user_id: userId },
-    
+
     // Data to use if UPDATING an existing profile
+    // Only update name and DOB, preserve employer_id
     update: profileData,
-    
+
     // Data to use if CREATING a new profile
+    // Preserve employer_id if user was added by employer before signup
     create: {
       ...profileData,
-      user: { connect: { id: userId } }
+      user: { connect: { id: userId } },
+      // If employer added this user before they signed up, preserve that link
+      ...(existingProfile?.employer_id && {
+        employer: { connect: { id: existingProfile.employer_id } }
+      })
     },
     include: {
-      user: true
+      user: true,
+      employer: {
+        select: {
+          id: true,
+          company_name: true
+        }
+      }
     }
   });
 
@@ -105,11 +123,11 @@ export const updateWorkerProfile = asyncHandler(async (req, res) => {
 
   // Return the profile with id for frontend to store
   return res.status(200).json(
-    new ApiResponse(200, { 
-      success: true, 
+    new ApiResponse(200, {
+      success: true,
       id: updatedProfile.id,
       user_id: userId,
-      profile: updatedProfile 
+      profile: updatedProfile
     }, "Profile updated")
   );
 });
