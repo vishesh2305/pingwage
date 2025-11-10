@@ -14,28 +14,24 @@ generator client {
 // Enums for type safety
 // ------------------------------------------
 
-/// From users table [cite: 696-698]
 enum UserRole {
   worker
   employer_admin
   super_admin
 }
 
-/// From users table [cite: 699-702]
 enum UserStatus {
   active
   suspended
   banned
 }
 
-/// From advances table [cite: 753-756]
 enum AdvanceSpeed {
   instant
   same_day
   next_day
 }
 
-/// From advances table [cite: 755-758]
 enum AdvanceStatus {
   pending
   processing
@@ -43,13 +39,11 @@ enum AdvanceStatus {
   failed
 }
 
-/// From advances table [cite: 759]
 enum PaymentProvider {
   stripe
   postfinance
 }
 
-/// From invoices table [cite: 788, 768]
 enum InvoiceStatus {
   pending
   paid
@@ -60,27 +54,29 @@ enum InvoiceStatus {
 // Database Models
 // ------------------------------------------
 
-/// Users (workers + employers + admins) [cite: 690]
+/// Users (workers + employers + admins)
 model User {
   id              String         @id @default(uuid()) @db.Uuid
   phone           String         @unique @db.VarChar(20)
   email           String?        @unique @db.VarChar(255)
   pin_hash        String?        @db.VarChar(255)
   password_hash   String?        @db.VarChar(255)
-  role            UserRole       @map("role") // Maps to the Enum
-  status          UserStatus     @default(active) @map("status") // Maps to the Enum
+  role            UserRole       @map("role")
+  status          UserStatus     @default(active) @map("status")
   created_at      DateTime       @default(now()) @db.Timestamp
   updated_at      DateTime       @updatedAt @db.Timestamp
   // Relations
-  worker_profile  WorkerProfile? // A user can have one worker profile
+  worker_profile  WorkerProfile?
   bank_accounts   BankAccount[]
   notifications   Notification[]
   audit_logs      AuditLog[]
+  earnings        Earning[]
+  advances        Advance[] // <-- FIX #1: ADDED THIS RELATION
 
   @@map("users")
 }
 
-/// Worker profiles [cite: 706]
+/// Worker profiles
 model WorkerProfile {
   id                  String     @id @default(uuid()) @db.Uuid
   user_id             String     @unique @db.Uuid // A worker profile is tied to one user
@@ -97,13 +93,12 @@ model WorkerProfile {
   // Relations
   user                User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   employer            Employer?  @relation(fields: [employer_id], references: [id])
-  earnings            Earning[]
-  advances            Advance[]
+  // advances         Advance[] // <-- FIX #2: REMOVED THIS FIELD
 
   @@map("worker_profiles")
 }
 
-/// Bank accounts [cite: 718]
+/// Bank accounts
 model BankAccount {
   id           String    @id @default(uuid()) @db.Uuid
   user_id      String    @db.Uuid
@@ -120,19 +115,26 @@ model BankAccount {
   @@map("bank_accounts")
 }
 
-/// Employers [cite: 727]
+/// Employers
 model Employer {
   id              String          @id @default(uuid()) @db.Uuid
   company_name    String          @db.VarChar(255)
   email           String          @unique @db.VarChar(255)
   tax_id          String?         @db.VarChar(50)
   logo_url        String?         @db.Text
-  settings        Json?           @db.JsonB // [cite: 734]
+  settings        Json?           @db.JsonB
   verified        Boolean         @default(false)
   created_at      DateTime        @default(now()) @db.Timestamp
   updated_at      DateTime        @updatedAt @db.Timestamp
+
+  // --- Fields required by controllers ---
+  advance_rate          Float           @default(0.5)
+  pay_period_frequency  String          @default("weekly")
+  pay_period_end_day    String?
+
   // Relations
   worker_profiles WorkerProfile[]
+  earnings        Earning[]
   advances        Advance[]
   invoices        Invoice[]
   payroll_syncs   PayrollSync[]
@@ -140,55 +142,57 @@ model Employer {
   @@map("employers")
 }
 
-/// Earnings (payroll data) [cite: 739]
+/// Earnings (payroll data)
 model Earning {
-  id                 String         @id @default(uuid()) @db.Uuid
-  worker_id          String?        @db.Uuid
-  pay_period_start   DateTime       @db.Date
-  pay_period_end     DateTime       @db.Date
-  total_earned       Decimal        @db.Decimal(10, 2)
-  hours_worked       Decimal?       @db.Decimal(8, 2)
-  hourly_rate        Decimal?       @db.Decimal(10, 2)
-  updated_at         DateTime       @updatedAt @db.Timestamp
-  // Relations
-  worker_profile     WorkerProfile? @relation(fields: [worker_id], references: [id])
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  employer_id String   @db.Uuid
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime @db.Date
+  notes       String?  @db.VarChar(255)
+  created_at  DateTime @default(now()) @db.Timestamp
 
-  @@index([worker_id]) // [cite: 815]
+  // Relations
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  employer    Employer @relation(fields: [employer_id], references: [id])
+
+  @@index([user_id])
+  @@index([date])
   @@map("earnings")
 }
 
-/// Advances (wage withdrawals) [cite: 749]
+/// Advances (wage withdrawals)
 model Advance {
   id               String          @id @default(uuid()) @db.Uuid
-  worker_id        String?         @db.Uuid
+  user_id          String          @db.Uuid
   employer_id      String?         @db.Uuid
   amount           Decimal         @db.Decimal(10, 2)
-  fee              Decimal         @db.Decimal(10, 2)
+  fee              Decimal         @db.Decimal(10, 2) @default(0)
   total            Decimal         @db.Decimal(10, 2)
   currency         String          @default("CHF") @db.VarChar(3)
-  speed            AdvanceSpeed    @map("speed") // Maps to the Enum
-  status           AdvanceStatus   @default(pending) @map("status") // Maps to the Enum
-  bank_account_id  String?         @db.Uuid
+  speed            AdvanceSpeed?   @map("speed")
+  status           AdvanceStatus   @default(pending) @map("status")
+  bank_account_id  String          @db.Uuid
   payment_id       String?         @db.VarChar(255)
-  payment_provider PaymentProvider? @map("payment_provider") // Maps to the Enum
-  idempotency_key  String          @unique @db.VarChar(255) // [cite: 760]
+  payment_provider PaymentProvider? @map("payment_provider")
+  idempotency_key  String?         @unique @db.VarChar(255)
   retry_count      Int             @default(0)
   failure_reason   String?         @db.Text
-  requested_at     DateTime        @default(now()) @db.Timestamp
+  created_at       DateTime        @default(now()) @db.Timestamp
   processed_at     DateTime?       @db.Timestamp
   completed_at     DateTime?       @db.Timestamp
   // Relations
-  worker_profile   WorkerProfile?  @relation(fields: [worker_id], references: [id])
+  user             User            @relation(fields: [user_id], references: [id], onUpdate: NoAction, onDelete: NoAction)
   employer         Employer?       @relation(fields: [employer_id], references: [id])
-  bank_account     BankAccount?    @relation(fields: [bank_account_id], references: [id])
+  bank_account     BankAccount     @relation(fields: [bank_account_id], references: [id])
 
-  @@index([worker_id]) // [cite: 814]
-  @@index([status]) // [cite: 814]
-  @@index([requested_at]) // [cite: 815]
+  @@index([user_id])
+  @@index([status])
+  @@index([created_at])
   @@map("advances")
 }
 
-/// Notifications [cite: 769]
+/// Notifications
 model Notification {
   id           String    @id @default(uuid()) @db.Uuid
   user_id      String    @db.Uuid
@@ -200,18 +204,18 @@ model Notification {
   // Relations
   user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@index([user_id]) // [cite: 816]
+  @@index([user_id])
   @@map("notifications")
 }
 
-/// Invoices (employer billing) [cite: 779]
+/// Invoices (employer billing)
 model Invoice {
   id           String        @id @default(uuid()) @db.Uuid
   employer_id  String?       @db.Uuid
   period       String?       @db.VarChar(10)
   amount       Decimal       @db.Decimal(10, 2)
-  breakdown    Json?         @db.JsonB // [cite: 786]
-  status       InvoiceStatus @default(pending) @map("status") // Maps to the Enum
+  breakdown    Json?         @db.JsonB
+  status       InvoiceStatus @default(pending) @map("status")
   payment_id   String?       @db.VarChar(255)
   paid_at      DateTime?     @db.Timestamp
   due_date     DateTime?     @db.Date
@@ -222,7 +226,7 @@ model Invoice {
   @@map("invoices")
 }
 
-/// Audit logs [cite: 795]
+/// Audit logs
 model AuditLog {
   id            String    @id @default(uuid()) @db.Uuid
   user_id       String?   @db.Uuid
@@ -238,7 +242,7 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-/// Payroll syncs [cite: 806]
+/// Payroll syncs
 model PayrollSync {
   id                  String     @id @default(uuid()) @db.Uuid
   employer_id         String?    @db.Uuid
@@ -253,7 +257,7 @@ model PayrollSync {
 }
 
 
-
+// Model for OTP verification
 model VerificationCode {
   id         String   @id @default(uuid()) @db.Uuid
   phone      String   @db.VarChar(20)
