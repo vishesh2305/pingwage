@@ -314,7 +314,14 @@ export const registerEmployer = asyncHandler(async (req, res) => {
   const existingUser = await prisma.user.findUnique({ where: { email } });
 
   if (existingUser) {
-    throw new ApiError(400, "Email already registered");
+    throw new ApiError(400, "This email is already registered. Please use a different email or login.");
+  }
+
+  // Check if employer email already exists
+  const existingEmployer = await prisma.employer.findUnique({ where: { email } });
+
+  if (existingEmployer) {
+    throw new ApiError(400, "This email is already registered as an employer. Please login instead.");
   }
 
   // Hash password
@@ -335,7 +342,8 @@ export const registerEmployer = asyncHandler(async (req, res) => {
   const employer = await prisma.employer.create({
     data: {
       user_id: user.id,
-      company_name
+      company_name,
+      email
     }
   });
 
