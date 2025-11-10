@@ -15,6 +15,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 const PROFILE_DATA = {
   name: "Nathan Timmis",
@@ -50,18 +51,23 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              // Clear all auth tokens and user data
+              // Clear all auth tokens and user data from AsyncStorage
               await AsyncStorage.multiRemove([
-                'authToken',
                 'tempToken',
-                'employeeName',
-                'userPhone'
+                'userPhone',
+                'hasCompletedOnboarding',
+                'userId'
               ]);
+
+              // Clear secure data from SecureStore
+              await SecureStore.deleteItemAsync('authToken');
+              await SecureStore.deleteItemAsync('userPasscode');
+              await SecureStore.deleteItemAsync('userId');
+              await SecureStore.deleteItemAsync('employeeName');
 
               console.log("User logged out successfully");
 
               // Navigate to the welcome/login screen
-              // Replace with your actual onboarding route
               router.replace('/(onboard)');
             } catch (error) {
               console.error("Error during logout:", error);

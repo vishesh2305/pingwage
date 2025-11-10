@@ -6,7 +6,8 @@ import {
   updateWorkerProfile, 
   addBankAccount,
   uploadProfilePhoto,
-  searchEmployers
+  searchEmployers,
+  getBankAccounts
 } from "../controllers/worker.controller.js";
 
 const router = Router();
@@ -14,7 +15,7 @@ router.use(protect); // All worker routes are protected
 
 router.get("/me", getWorkerProfile);
 router.put("/me", updateWorkerProfile);
-
+router.get("/bank-accounts", getBankAccounts);
 router.post("/bank-account", addBankAccount);
 router.post("/profile-photo", upload.single('image'), uploadProfilePhoto);
 

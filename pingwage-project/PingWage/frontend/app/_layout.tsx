@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts, Manrope_400Regular, Manrope_500Medium, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import 'react-native-reanimated';
 import '../global.css';
-import {AppDataProvider} from './AppDataContext';
+import {AppDataProvider} from '../contexts/AppDataContext';
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({

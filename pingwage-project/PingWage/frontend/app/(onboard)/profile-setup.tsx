@@ -24,36 +24,21 @@ export default function ProfileSetupScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCompleteSetup = async () => {
+    // Basic validation
+    if (!email.trim()) {
+      Alert.alert('Validation Error', 'Please enter your email address.');
+      return;
+    }
+    if (!dateOfBirth.trim() || dateOfBirth.length !== 10) {
+      Alert.alert('Validation Error', 'Please enter a valid date of birth (YYYY-MM-DD).');
+      return;
+    }
+    if (!iban.trim()) {
+      Alert.alert('Validation Error', 'Please enter your IBAN.');
+      return;
+    }
+
     setIsLoading(true);
-
-    // Validate inputs
-    if (!email || !dateOfBirth || !iban) {
-      Alert.alert('Error', 'Please fill in all fields');
-      setIsLoading(false);
-      return;
-    }
-
-    // Validate date format (YYYY-MM-DD)
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(dateOfBirth)) {
-      Alert.alert('Error', 'Date of birth must be in YYYY-MM-DD format');
-      setIsLoading(false);
-      return;
-    }
-
-    // Validate date is valid and not in the future
-    const dobDate = new Date(dateOfBirth);
-    if (isNaN(dobDate.getTime())) {
-      Alert.alert('Error', 'Invalid date of birth');
-      setIsLoading(false);
-      return;
-    }
-
-    if (dobDate > new Date()) {
-      Alert.alert('Error', 'Date of birth cannot be in the future');
-      setIsLoading(false);
-      return;
-    }
 
     try {
       console.log('Submitting profile with data:', {
@@ -81,6 +66,23 @@ export default function ProfileSetupScreen() {
 
       if (!profileRes.success) {
         throw new Error(profileRes.message || 'Failed to update profile');
+      }
+
+      // CRITICAL FIX: Store the userId from the profile response
+      // Check if the backend returns worker_id, id, or userId in the response
+      const workerId = profileRes.data?.id || profileRes.data?.worker_id || profileRes.data?.userId;
+      
+      if (workerId) {
+        await AsyncStorage.setItem('userId', workerId.toString());
+        console.log('Stored userId:', workerId);
+      } else {
+        console.warn('No userId found in profile response. Checking if it was stored earlier.');
+        // If userId wasn't in the profile response, it might have been in the verify-phone response
+        // Check if it exists in AsyncStorage already
+        const existingUserId = await AsyncStorage.getItem('userId');
+        if (!existingUserId) {
+          console.error('CRITICAL: No userId available. This will cause issues in create-passcode.');
+        }
       }
 
       // 2. Add the bank account (IBAN)
@@ -112,7 +114,7 @@ export default function ProfileSetupScreen() {
 
     } catch (error) {
       console.error('handleCompleteSetup error:', error);
-      Alert.alert('Error', (error as Error).message || 'An error occurred.');
+      Alert.alert('Error', (error as Error).message || 'An error occurred during profile setup.');
     } finally {
       setIsLoading(false);
     }

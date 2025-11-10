@@ -1,15 +1,18 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Alert } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
+import { useAuth } from '@/contexts/AppDataContext';
 
 export default function EnterPasscodeScreen() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState(false);
   const [storedPasscode, setStoredPasscode] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -34,11 +37,57 @@ export default function EnterPasscodeScreen() {
     }
   };
 
-  const verifyPasscode = (code: string) => {
+  const verifyPasscode = async (code: string) => {
     if (storedPasscode && code === storedPasscode) {
       // Success haptic
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)');
+      setIsVerifying(true);
+
+      try {
+        // Get the stored auth token from SecureStore
+        const authToken = await SecureStore.getItemAsync('authToken');
+
+        if (!authToken) {
+          throw new Error('Authentication token not found. Please log in again.');
+        }
+
+        // Get stored user data
+        const userId = await SecureStore.getItemAsync('userId');
+        const employeeName = await SecureStore.getItemAsync('employeeName');
+
+        if (!userId) {
+          throw new Error('User data not found. Please log in again.');
+        }
+
+        // Create user object
+        const userObject = {
+          id: userId,
+          name: employeeName || 'User',
+        };
+
+        // Sign in with the stored token
+        await signIn(authToken, userObject);
+        // signIn will automatically navigate to /(tabs)
+      } catch (err) {
+        console.error('Login error:', err);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+        Alert.alert(
+          'Login Failed',
+          (err as Error).message || 'Could not load your data. Please try logging in again.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setPasscode('');
+                setIsVerifying(false);
+                // Optionally navigate back to onboarding
+                router.replace('/(onboard)');
+              }
+            }
+          ]
+        );
+      }
     } else {
       // Error haptic - stronger feedback for wrong passcode
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

@@ -4,7 +4,7 @@ import {
   getAdvanceLimits, 
   getAdvanceFees, 
   requestAdvance, 
-  getAdvanceHistory 
+  getAdvanceHistory
 } from "../controllers/advance.controller.js";
 
 const router = Router();

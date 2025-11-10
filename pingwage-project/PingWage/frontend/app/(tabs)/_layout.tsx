@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
-import { AppDataProvider } from '../AppDataContext';
+import { AppDataProvider } from '../../contexts/AppDataContext';
 import BottomNav from '@/components/BottomNav';
 
 export default function TabsLayout() {

@@ -140,6 +140,15 @@ export default function VerifyPhoneScreen() {
         // This token is from /verify-phone and is short-lived
         await AsyncStorage.setItem('tempToken', res.data.token);
         
+        // CRITICAL FIX: Store the user_id from the verification response
+        // This is needed later in create-passcode.tsx
+        if (res.data.user_id) {
+          await AsyncStorage.setItem('userId', res.data.user_id.toString());
+          console.log('Stored userId:', res.data.user_id);
+        } else {
+          console.warn('No user_id in verification response!');
+        }
+        
         console.log('Verifying OTP:', code);
         router.push({
           pathname: '/company-verification',

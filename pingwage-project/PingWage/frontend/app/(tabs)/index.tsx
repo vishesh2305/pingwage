@@ -14,7 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAppData } from '../AppDataContext';
+import { useAppData } from '../../contexts/AppDataContext';
 import * as Haptics from 'expo-haptics';
 import { protectedFetch } from '@/lib/api'; // Import our helper
 
