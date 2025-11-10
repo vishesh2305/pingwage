@@ -4,12 +4,17 @@ import {
   getEmployerProfile,
   getEmployees,
   addEmployee,
-  removeEmployee
+  removeEmployee,
+  verifyCompanyId
 } from "../controllers/employer.controller.js";
 
 const router = Router();
-router.use(protect); // All employer routes are protected
 
+// Public route for company verification during onboarding
+router.post("/:employerId/verify", protect, verifyCompanyId);
+
+// Protected routes (require employer authentication)
+router.use(protect);
 router.get("/me", getEmployerProfile);
 router.get("/employees", getEmployees);
 router.post("/employees", addEmployee);

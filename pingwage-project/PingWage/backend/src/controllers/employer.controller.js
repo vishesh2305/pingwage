@@ -173,3 +173,56 @@ export const removeEmployee = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, null, "Employee removed successfully"));
 });
+
+/**
+ * @route POST /api/v1/employers/:employerId/verify
+ * @desc Verify company ID and check if employee exists (for onboarding)
+ * @access Public (uses tempToken during onboarding)
+ */
+export const verifyCompanyId = asyncHandler(async (req, res) => {
+  const { employerId } = req.params;
+  const { phone } = req.body;
+
+  if (!phone) {
+    throw new ApiError(400, "Phone number is required");
+  }
+
+  console.log('Verifying company ID:', employerId, 'for phone:', phone);
+
+  // Find the employer by ID
+  const employer = await prisma.employer.findUnique({
+    where: { id: employerId }
+  });
+
+  if (!employer) {
+    throw new ApiError(404, "Company not found. Please check your Company ID.");
+  }
+
+  // Find the user by phone
+  const user = await prisma.user.findUnique({
+    where: { phone }
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found. Please complete phone verification first.");
+  }
+
+  // Check if worker profile exists and is linked to this employer
+  const workerProfile = await prisma.workerProfile.findUnique({
+    where: { user_id: user.id }
+  });
+
+  if (workerProfile && workerProfile.employer_id === employer.id) {
+    // Worker is already linked to this employer
+    return res.status(200).json(
+      new ApiResponse(200, {
+        company_name: employer.company_name,
+        employee_name: workerProfile.first_name ?
+          `${workerProfile.first_name} ${workerProfile.last_name || ''}`.trim() : null
+      }, "Company verified and employee found")
+    );
+  }
+
+  // Worker not found in this company
+  throw new ApiError(404, "You are not registered with this company. Please ask your employer to add you first.");
+});

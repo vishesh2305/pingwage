@@ -1,28 +1,10 @@
-import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useState } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import BackButton from '@/components/BackButton';
 import { Ionicons } from '@expo/vector-icons';
-
-// Sample data for testing
-const SAMPLE_DATA = [
-  {
-    companyId: 'PING-78901',
-    companyName: 'Innovate Corp.',
-    employees: [
-      { phone: '+41791234567', name: 'Alex Johnson' },
-      { phone: '+41797654321', name: 'Sarah Williams' },
-    ],
-  },
-  {
-    companyId: 'PING-12345',
-    companyName: 'TechStart Inc.',
-    employees: [
-      { phone: '+41791111111', name: 'John Doe' },
-      { phone: '+41792222222', name: 'Jane Smith' },
-    ],
-  },
-];
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { protectedFetch } from '@/lib/api';
 
 export default function CompanyVerificationScreen() {
   const router = useRouter();
@@ -31,12 +13,13 @@ export default function CompanyVerificationScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [employeeData, setEmployeeData] = useState<{
     companyName: string;
-    employeeName: string;
+    employeeName: string | null;
+    employerId: string;
   } | null>(null);
   const [notFound, setNotFound] = useState(false);
 
-  // Get phone number from navigation params, fallback to test number
-  const userPhoneNumber = (params.phoneNumber as string) || '+41791234567';
+  // Get phone number from navigation params
+  const userPhoneNumber = params.phoneNumber as string;
 
   const handleSearch = async () => {
     if (!companyId.trim()) return;
@@ -45,42 +28,53 @@ export default function CompanyVerificationScreen() {
     setNotFound(false);
     setEmployeeData(null);
 
-    // Simulate API call with delay
-    setTimeout(() => {
-      // Search for company
-      const company = SAMPLE_DATA.find(
-        (c) => c.companyId.toLowerCase() === companyId.trim().toLowerCase()
+    try {
+      console.log('Verifying company ID:', companyId, 'for phone:', userPhoneNumber);
+
+      // Call backend API to verify company ID and check if employee exists
+      const response = await protectedFetch(
+        `/employers/${companyId.trim()}/verify`,
+        {
+          method: 'POST',
+          body: { phone: userPhoneNumber }
+        },
+        'tempToken'
       );
 
-      if (company) {
-        // Search for employee by phone number
-        const employee = company.employees.find(
-          (e) => e.phone === userPhoneNumber
-        );
+      console.log('Verification response:', response);
 
-        if (employee) {
-          setEmployeeData({
-            companyName: company.companyName,
-            employeeName: employee.name,
-          });
-        } else {
-          setNotFound(true);
-        }
+      if (response.success && response.data) {
+        // Employee found in this company
+        setEmployeeData({
+          companyName: response.data.company_name,
+          employeeName: response.data.employee_name || null,
+          employerId: companyId.trim()
+        });
+
+        // Store employer ID for later use during profile setup
+        await AsyncStorage.setItem('employerId', companyId.trim());
       } else {
         setNotFound(true);
       }
-
+    } catch (error: any) {
+      console.error('Error verifying company:', error);
+      setNotFound(true);
+      Alert.alert('Error', error.message || 'Failed to verify company ID');
+    } finally {
       setIsLoading(false);
-    }, 1500); // 1.5 second delay to simulate network request
+    }
   };
 
   const handleConfirm = () => {
     if (!employeeData) return;
 
-    // Navigate to profile setup with employee name
+    // Navigate to profile setup with employee name pre-filled if available
     router.push({
       pathname: '/profile-setup',
-      params: { employeeName: employeeData.employeeName }
+      params: {
+        employeeName: employeeData.employeeName || '',
+        employerId: employeeData.employerId
+      }
     });
   };
 
@@ -108,7 +102,7 @@ export default function CompanyVerificationScreen() {
           Enter your Company ID
         </Text>
         <Text className="text-base font-normal text-[#A9A9A9] leading-normal pt-2 pb-8">
-          You can find this ID in the welcome email from your employer.
+          Your employer will provide you with a Company ID. Paste it below to link your account.
         </Text>
 
         {/* Company ID Input */}
@@ -120,11 +114,11 @@ export default function CompanyVerificationScreen() {
             <View className="flex-row items-center gap-2">
               <TextInput
                 className="flex-1 rounded-lg border border-white/20 bg-transparent text-white h-14 px-4 text-base"
-                placeholder="e.g., PING-12345"
+                placeholder="Paste Company ID here"
                 placeholderTextColor="#A9A9A9"
                 value={companyId}
                 onChangeText={setCompanyId}
-                autoCapitalize="characters"
+                autoCapitalize="none"
                 onSubmitEditing={handleSearch}
               />
               <Pressable
@@ -139,12 +133,21 @@ export default function CompanyVerificationScreen() {
                 )}
               </Pressable>
             </View>
+            <Text className="text-xs text-[#A9A9A9] mt-2">
+              Example: a674d68b-0547-41d1-8fd4-89ddeb8d54c7
+            </Text>
           </View>
         </View>
 
         {/* Employee Data Display */}
         {employeeData && !isLoading && (
           <View className="mt-8 flex flex-col rounded-xl bg-white/5 p-6 border border-white/10">
+            <View className="flex-row items-center gap-3 mb-5">
+              <Ionicons name="checkmark-circle" size={32} color="#22C55E" />
+              <Text className="text-xl font-bold text-white">
+                Company Found!
+              </Text>
+            </View>
             <View className="flex flex-col mb-5">
               <Text className="text-sm font-medium text-[#A9A9A9] mb-2">
                 Company
@@ -153,14 +156,19 @@ export default function CompanyVerificationScreen() {
                 {employeeData.companyName}
               </Text>
             </View>
-            <View className="flex flex-col">
-              <Text className="text-sm font-medium text-[#A9A9A9] mb-2">
-                Employee Name
-              </Text>
-              <Text className="text-lg font-semibold text-white">
-                {employeeData.employeeName}
-              </Text>
-            </View>
+            {employeeData.employeeName && (
+              <View className="flex flex-col">
+                <Text className="text-sm font-medium text-[#A9A9A9] mb-2">
+                  Registered Name
+                </Text>
+                <Text className="text-lg font-semibold text-white">
+                  {employeeData.employeeName}
+                </Text>
+                <Text className="text-xs text-[#A9A9A9] mt-1">
+                  You can update your name in the next step
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -170,11 +178,11 @@ export default function CompanyVerificationScreen() {
             <View className="flex-row items-center gap-3 mb-3">
               <Ionicons name="alert-circle" size={24} color="#EF4444" />
               <Text className="text-lg font-semibold text-red-400">
-                Employee Not Found
+                Not Found
               </Text>
             </View>
             <Text className="text-sm text-red-300 leading-relaxed">
-              We couldn't find you in this company. Please check your Company ID or contact your employer for assistance.
+              We couldn't find you in this company. Please check your Company ID or ask your employer to add you first in the employer portal.
             </Text>
           </View>
         )}
