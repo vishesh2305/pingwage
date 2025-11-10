@@ -261,9 +261,9 @@ export const resetPin = asyncHandler(async (req, res) => {
 
   // Verify code
   const vCode = await prisma.verificationCode.findFirst({
-    where: { 
-      phone, 
-      code, 
+    where: {
+      phone,
+      code,
       expires_at: { gte: new Date() },
       verified: false
     }
@@ -281,7 +281,7 @@ export const resetPin = asyncHandler(async (req, res) => {
 
   // Update PIN
   const user = await prisma.user.findUnique({ where: { phone } });
-  
+
   if (!user) {
     throw new ApiError(404, "User not found");
   }
@@ -295,5 +295,119 @@ export const resetPin = asyncHandler(async (req, res) => {
 
   return res.status(200).json(
     new ApiResponse(200, { success: true }, "PIN reset successfully")
+  );
+});
+
+/**
+ * @route POST /api/v1/auth/register-employer
+ * @desc Register a new employer company
+ * @access Public
+ */
+export const registerEmployer = asyncHandler(async (req, res) => {
+  const { company_name, email, password, phone } = req.body;
+
+  if (!company_name || !email || !password) {
+    throw new ApiError(400, "Company name, email, and password are required");
+  }
+
+  // Check if email already exists
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+
+  if (existingUser) {
+    throw new ApiError(400, "Email already registered");
+  }
+
+  // Hash password
+  const password_hash = await bcrypt.hash(password, 10);
+
+  // Create user account with employer role
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password_hash,
+      phone: phone || null,
+      role: "employer",
+      status: "active"
+    }
+  });
+
+  // Create employer profile
+  const employer = await prisma.employer.create({
+    data: {
+      user_id: user.id,
+      company_name
+    }
+  });
+
+  // Generate token
+  const token = jwt.sign(
+    { userId: user.id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRY || "7d" }
+  );
+
+  return res.status(201).json(
+    new ApiResponse(201, {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      },
+      employer: {
+        id: employer.id,
+        company_name: employer.company_name
+      }
+    }, "Employer registered successfully")
+  );
+});
+
+/**
+ * @route POST /api/v1/auth/login-employer
+ * @desc Login for employers with email and password
+ * @access Public
+ */
+export const loginEmployer = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    throw new ApiError(400, "Email and password are required");
+  }
+
+  // Find user by email
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user || !user.password_hash) {
+    throw new ApiError(401, "Invalid credentials");
+  }
+
+  // Check if user is an employer
+  if (user.role !== "employer") {
+    throw new ApiError(401, "Invalid credentials");
+  }
+
+  // Verify password
+  const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
+
+  if (!isPasswordCorrect) {
+    throw new ApiError(401, "Invalid credentials");
+  }
+
+  // Generate token
+  const token = jwt.sign(
+    { userId: user.id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRY || "7d" }
+  );
+
+  return res.status(200).json(
+    new ApiResponse(200, {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      }
+    }, "Login successful")
   );
 });

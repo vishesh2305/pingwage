@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store'; // <-- 1. IMPORT SECURESTORE
 
 // !! Replace with your backend's actual URL
-const API_URL = 'http://10.30.0.117:3000/api/v1';
+const API_URL = 'http://10.35.156.220:3000/api/v1';
 
 /**
  * Helper function to handle common fetch response logic.

@@ -16,6 +16,7 @@ generator client {
 
 enum UserRole {
   worker
+  employer
   employer_admin
   super_admin
 }
@@ -57,7 +58,7 @@ enum InvoiceStatus {
 /// Users (workers + employers + admins)
 model User {
   id              String         @id @default(uuid()) @db.Uuid
-  phone           String         @unique @db.VarChar(20)
+  phone           String?        @unique @db.VarChar(20)
   email           String?        @unique @db.VarChar(255)
   pin_hash        String?        @db.VarChar(255)
   password_hash   String?        @db.VarChar(255)
@@ -67,6 +68,7 @@ model User {
   updated_at      DateTime       @updatedAt @db.Timestamp
   // Relations
   worker_profile  WorkerProfile?
+  employer        Employer?
   bank_accounts   BankAccount[]
   notifications   Notification[]
   audit_logs      AuditLog[]
@@ -118,6 +120,7 @@ model BankAccount {
 /// Employers
 model Employer {
   id              String          @id @default(uuid()) @db.Uuid
+  user_id         String          @unique @db.Uuid
   company_name    String          @db.VarChar(255)
   email           String          @unique @db.VarChar(255)
   tax_id          String?         @db.VarChar(50)
@@ -133,6 +136,7 @@ model Employer {
   pay_period_end_day    String?
 
   // Relations
+  user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
   worker_profiles WorkerProfile[]
   earnings        Earning[]
   advances        Advance[]
