@@ -79,10 +79,14 @@ export const getEmployees = asyncHandler(async (req, res) => {
  */
 export const addEmployee = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
-  const { phone, name } = req.body;
+  const { phone, name, monthly_salary } = req.body;
 
   if (!phone) {
     throw new ApiError(400, "Phone number is required");
+  }
+
+  if (!monthly_salary || monthly_salary <= 0) {
+    throw new ApiError(400, "Monthly salary is required and must be greater than 0");
   }
 
   // Get employer record
@@ -111,6 +115,9 @@ export const addEmployee = asyncHandler(async (req, res) => {
     });
   }
 
+  // Calculate daily rate (monthly salary / 30 days)
+  const dailyRate = parseFloat(monthly_salary) / 30;
+
   // Check if worker profile exists
   let workerProfile = await prisma.workerProfile.findUnique({
     where: { user_id: user.id }
@@ -122,7 +129,10 @@ export const addEmployee = asyncHandler(async (req, res) => {
       data: {
         user: { connect: { id: user.id } },
         employer: { connect: { id: employer.id } },
-        first_name: name || ''
+        first_name: name || '',
+        monthly_salary: parseFloat(monthly_salary),
+        daily_rate: dailyRate,
+        last_allocation_date: null // Will start allocating from tomorrow
       }
     });
   } else {
@@ -131,13 +141,19 @@ export const addEmployee = asyncHandler(async (req, res) => {
       where: { user_id: user.id },
       data: {
         employer_id: employer.id,
-        first_name: name || workerProfile.first_name
+        first_name: name || workerProfile.first_name,
+        monthly_salary: parseFloat(monthly_salary),
+        daily_rate: dailyRate,
+        last_allocation_date: null // Reset allocation date
       }
     });
   }
 
   return res.status(201).json(
-    new ApiResponse(201, workerProfile, "Employee added successfully")
+    new ApiResponse(201, {
+      ...workerProfile,
+      daily_rate_formatted: dailyRate.toFixed(2)
+    }, "Employee added successfully")
   );
 });
 

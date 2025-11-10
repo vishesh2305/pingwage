@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { app } from "./app.js";
 import { PrismaClient } from "@prisma/client";
+import { initializeCronJobs } from "./services/cron.service.js";
 
 dotenv.config();
 
@@ -10,6 +11,9 @@ const startServer = () => {
   const port = process.env.PORT || 3000;
   app.listen(port, () => {
     console.log(`Server is running on port: ${port}`);
+
+    // Initialize cron jobs after server starts
+    initializeCronJobs();
   });
 };
 

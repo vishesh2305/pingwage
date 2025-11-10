@@ -311,11 +311,16 @@
                     <div class="form-group">
                         <label>Employee Phone Number *</label>
                         <input type="tel" id="employeePhone" placeholder="+41791234567" required>
-                        <small>Include country code. Employee must have already signed up in the mobile app.</small>
+                        <small>Include country code. They can sign up before or after you add them.</small>
                     </div>
                     <div class="form-group">
                         <label>Employee Name (Optional)</label>
                         <input type="text" id="employeeName" placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label>Monthly Salary (CHF) *</label>
+                        <input type="number" id="monthlySalary" placeholder="3000" min="0" step="0.01" required>
+                        <small>Employee's monthly salary. Daily earnings will be automatically allocated based on this amount.</small>
                     </div>
                     <button type="submit" class="btn">Add Employee</button>
                 </form>
@@ -429,9 +434,15 @@
             e.preventDefault();
             const phone = document.getElementById('employeePhone').value.trim();
             const name = document.getElementById('employeeName').value.trim();
+            const monthlySalary = parseFloat(document.getElementById('monthlySalary').value);
 
             if (!phone.startsWith('+')) {
                 showAlert('addEmployeeAlert', 'Phone number must include country code (e.g., +41)', 'error');
+                return;
+            }
+
+            if (isNaN(monthlySalary) || monthlySalary <= 0) {
+                showAlert('addEmployeeAlert', 'Please enter a valid monthly salary', 'error');
                 return;
             }
 
@@ -442,7 +453,11 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${authToken}`
                     },
-                    body: JSON.stringify({ phone, name: name || undefined })
+                    body: JSON.stringify({
+                        phone,
+                        name: name || undefined,
+                        monthly_salary: monthlySalary
+                    })
                 });
 
                 const data = await response.json();
@@ -451,7 +466,7 @@
                     throw new Error(data.message || 'Failed to add employee');
                 }
 
-                showAlert('addEmployeeAlert', 'Employee added successfully!', 'success');
+                showAlert('addEmployeeAlert', `Employee added successfully! Daily rate: CHF ${(monthlySalary / 30).toFixed(2)}`, 'success');
                 document.getElementById('addEmployeeForm').reset();
 
                 // Reload employees list
