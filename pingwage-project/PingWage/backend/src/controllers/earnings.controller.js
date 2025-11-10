@@ -82,8 +82,17 @@ export const getCurrentEarnings = asyncHandler(async (req, res) => {
     include: { employer: true }
   });
 
+  // If no profile or employer yet, return empty earnings data
   if (!profile || !profile.employer) {
-    throw new ApiError(404, "Worker profile or linked employer not found");
+    return res.status(200).json(new ApiResponse(200, {
+      total_earned: 0,
+      available_now: 0,
+      advances_taken: 0,
+      pay_period_start: null,
+      pay_period_end: null,
+      next_payday: null,
+      message: "No employer linked yet. Complete onboarding to start earning."
+    }, "No employer linked"));
   }
 
   const employer = profile.employer;
