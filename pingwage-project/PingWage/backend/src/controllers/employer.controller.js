@@ -11,7 +11,9 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 export const getEmployerProfile = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
 
-  const employer = await prisma.employer.findUnique({
+  console.log('Looking for employer with user_id:', userId);
+
+  let employer = await prisma.employer.findUnique({
     where: { user_id: userId },
     include: {
       user: {
@@ -24,7 +26,13 @@ export const getEmployerProfile = asyncHandler(async (req, res) => {
   });
 
   if (!employer) {
-    throw new ApiError(404, "Employer profile not found");
+    console.error('Employer profile not found for user_id:', userId);
+
+    // Check if user exists and is an employer
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    console.log('User found:', user?.email, 'Role:', user?.role);
+
+    throw new ApiError(404, "Employer profile not found. Please contact support or re-register.");
   }
 
   return res.status(200).json(new ApiResponse(200, employer, "Employer profile fetched"));
